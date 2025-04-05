@@ -1,22 +1,40 @@
-# This is an example workload.yaml file. It is used to configure a Dev Box's customizations.
 $schema: "1.0"
 name: "devbox-runner"
 tasks:
   - name: powershell
     parameters:
-      command: Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-win-arm64-2.323.0.zip -OutFile 'C:\\actions-runner\\runner.zip'
-    description: Execute a powershell command to download the runner using Invoke-WebRequest.
+      command: |
+        if (Test-Path 'C:\actions-runner') {
+          Get-ChildItem -Path 'C:\actions-runner' -Recurse -Force | Remove-Item -Force -Recurse
+        } else {
+          New-Item -Path 'C:\actions-runner' -ItemType Directory -Force
+        }
+    description: Clean or create the C:\actions-runner directory
+  
   - name: powershell
     parameters:
-      command: Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO.Compression.ZipFile]::ExtractToDirectory('C:\\actions-runner\\runner.zip', '$PWD')
-    description: Execute a powershell command to extract the installer using System.IO.Compression.
+      command: Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-win-x64-2.323.0.zip -OutFile 'C:\actions-runner\runner.zip'
+    description: Download the x64 runner package (changed from arm64)
+  
   - name: powershell
     parameters:
-      command: ./config.sh --url https://github.com/mohaimenhasan/devbox-runner-demo --token <token>
-      workingDirectory: C:\\actions-runner\\runner.zip
-    description: Run the configuration script for the runner.
+      command: Expand-Archive -Path 'C:\actions-runner\runner.zip' -DestinationPath 'C:\actions-runner' -Force
+    description: Extract the runner package
+  
   - name: powershell
     parameters:
-      command: ./run.sh
-      workingDirectory: C:\\actions-runner\\runner.zip
-    description: Execute a powershell command to start the runner in the working directory C:\\actions-runner\\runner.zip.
+      command: |
+        Set-Location -Path 'C:\actions-runner'
+        .\config.cmd --url https://github.com/mohaimenhasan/devbox-runner-demo --token {{https://devcenteraipoc-kv.vault.azure.net/secrets/mohaimen-github-runner-pat}} --unattended --replace
+    description: Configure the runner with unattended flag to skip interactive prompts
+  
+  - name: powershell
+    parameters:
+      command: |
+        Set-Location -Path 'C:\actions-runner'
+        $action = New-ScheduledTaskAction -Execute "C:\actions-runner\run.cmd"
+        $trigger = New-ScheduledTaskTrigger -AtStartup
+        $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit 0 -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+        Register-ScheduledTask -TaskName "GitHubActionsRunner" -Action $action -Trigger $trigger -Settings $settings -User "System" -Force
+        Start-ScheduledTask -TaskName "GitHubActionsRunner"
+    description: Register and start the runner as a scheduled task that runs at system startup
