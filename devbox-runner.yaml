@@ -4,20 +4,19 @@ name: "devbox-runner"
 tasks:
   - name: powershell
     parameters:
-      command: Invoke-WebRequest -Uri 'https://github.com/actions/runner/releases' -OutFile 'C:\\actions-runner\\runner.zip'
-      workingDirectory: C:\\actions-runner
-    description: Execute a powershell command to download the runner from GitHub releases. The command will be executed in the 'C:\\actions-runner' working directory.
+      command: Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/v2.323.0/actions-runner-win-arm64-2.323.0.zip -OutFile 'C:\\actions-runner\\runner.zip'
+    description: Execute a powershell command to download the runner using Invoke-WebRequest.
   - name: powershell
     parameters:
-      command: Expand-Archive -Path 'C:\\actions-runner\\runner.zip' -DestinationPath 'C:\\actions-runner'; Start-Process powershell -ArgumentList '-NoExit', '-Command', 'Set-Location -Path C:\\actions-runner'
-    description: Execute a powershell command to extract the runner and open a terminal in the directory C:\\actions-runner.
+      command: Add-Type -AssemblyName System.IO.Compression.FileSystem ; [System.IO.Compression.ZipFile]::ExtractToDirectory('C:\\actions-runner\\runner.zip', '$PWD')
+    description: Execute a powershell command to extract the installer using System.IO.Compression.
   - name: powershell
     parameters:
-      command: ./config.sh --url https://github.com/mohaimenhasan/devbox-runner-demo --token <ADD TOKEN>
-      workingDirectory: C:\\actions-runner
-    description: Execute the powershell command './config.sh --url https://github.com/mohaimenhasan/devbox-runner-demo --token <ADD TOKEN>' in the working directory 'C:\\actions-runner'.
+      command: ./config.sh --url https://github.com/mohaimenhasan/devbox-runner-demo --token <token>
+      workingDirectory: C:\\actions-runner\\runner.zip
+    description: Run the configuration script for the runner.
   - name: powershell
     parameters:
       command: ./run.sh
-      workingDirectory: C:\\actions-runner
-    description: Execute a powershell command to start the runner in the directory C:\\actions-runner.
+      workingDirectory: C:\\actions-runner\\runner.zip
+    description: Execute a powershell command to start the runner in the working directory C:\\actions-runner\\runner.zip.
